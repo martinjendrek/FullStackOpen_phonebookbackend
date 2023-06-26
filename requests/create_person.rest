@@ -2,6 +2,20 @@ POST http://localhost:3001/api/persons
 Content-Type: application/json
 
 {
-"name": "Mario",
-"number": "423-242-213"
+"name": "Pudzian",
+"number": "222-242-213"
+}
+###
+POST http://localhost:3001/api/persons
+Content-Type: application/json
+
+{
+"name": "Pudzian"
+}
+###
+POST http://localhost:3001/api/persons
+Content-Type: application/json
+
+{
+"number": "222-242-213"
 }
