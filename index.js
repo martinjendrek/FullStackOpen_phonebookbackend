@@ -42,15 +42,25 @@ app.get('/api', (request, response) => {
     response.send(`${welcomePage}`)
 })
 
-
+// This need to be updated to work with MongoDB
 app.get('/info', (request, response) => {
-    date = new Date()
-    const infoPage = `
-        <p>Phonebook has info for ${persons.length} people.</p>
-        <p>${date}</p>
-        `
-    response.send(`${infoPage}`)
-})
+    const date = new Date();
+  
+    // Use Person.countDocuments to count the number of documents in the collection
+    Person.countDocuments({})
+      .then(count => {
+        console.log('There are %d people in the collection.', count);
+        const infoPage = `
+          <p>Phonebook has info for ${count} people.</p>
+          <p>${date}</p>
+        `;
+        response.send(infoPage);
+      })
+      .catch(error => {
+        console.error('Error counting documents:', error);
+        response.status(500).send('Internal Server Error');
+      });
+  });
 
 app.get('/api/persons', (request, response) => {
   Person.find({}).then(persons => {
@@ -60,24 +70,20 @@ app.get('/api/persons', (request, response) => {
 
 app.get('/api/persons/:id', (request, response) => {
     Person.findById(request.params.id).then(person => {
-    console.log(person)
-      response.json(person)
+    response.json(person)
     })
   })
 
-app.delete('/api/persons/:id', (request, response) => {
-    const id = Number(request.params.id)
-    persons = persons.filter(p=>p.id !== id)
-    response.status(204).end()
+app.delete('/api/persons/:id', (request, response, next) =>{
+    Person.findByIdAndDelete(request.params.id)
+    .then(result =>{
+        response.status(204).end()
+    })
+    .catch (error => next(error))
 })
 
-app.post('/api/persons', (request, response) => {
+app.post('/api/persons', (request, response, next) => {
     const body = request.body
-    if (!body.name || !body.number) {
-        return response.status(400).json({error: 'content "name" or "number" missing'})
-    } else if (persons.map(p=>p.name).includes(body.name)) {
-        return response.status(400).json({error: ' "name" must be unique'})
-    }
     const person = new Person ({ 
         name: body.name, 
         number: body.number
@@ -85,7 +91,38 @@ app.post('/api/persons', (request, response) => {
       person.save().then(savedPerson => {
     response.json(savedPerson)
   })
+  .catch(error => next(error))
 })
+
+app.put('/api/persons/:id', (request, response, next) => {
+    const body = request.body
+  
+    const person = {
+      name: body.name,
+      number: body.number,
+    }
+  
+    Person.findByIdAndUpdate(request.params.id, person, { new: true, runValidators: true, context: 'query' })
+      .then(updatedPerson => {
+        response.json(updatedPerson)
+      })
+      .catch(error => next(error))
+  })
+
+
+const errorHandler = (error, request, response, next) => {
+    console.error(error.message)
+  
+    if (error.name === 'CastError') {
+      return response.status(400).send({ error: 'malformatted id' })
+    } else if (error.name === 'ValidationError') {
+      return response.status(400).json({error: error.message})
+    }
+  
+    next(error)
+  }
+
+app.use(errorHandler)
 
 const PORT = process.env.PORT
 app.listen(PORT, () => {
